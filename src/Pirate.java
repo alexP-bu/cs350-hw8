@@ -84,7 +84,6 @@ public class Pirate {
                     for(int j = startPoint + 1; j < endPoint; j++){
                         String currHash = hasher.hash(startPoint + ";" + j + ";" + endPoint);
                         if(uncrackedHashes.contains(currHash)){
-                            printer.write(startPoint + ";" + j + ";" + endPoint + "\n");
                             uncrackedHashes.remove(currHash);
                             crackedHints.add(j);
                         }
