@@ -15,11 +15,12 @@ public class Pirate {
     private List<Integer> crackedHints;
     private final PrintWriter printer;
     
-    public Pirate(){
-        this.dispatcher = new Dispatcher();
+    public Pirate(String path, Long timeout){
+        this.dispatcher = new Dispatcher(timeout);
         this.threads = new Vector<>();
         this.crackedHints = new Vector<>();
         this.printer = new PrintWriter(System.out);
+        ciphertextPath = path;
     }
     
     public void findTreasure(String path) throws FileNotFoundException, IOException{
@@ -97,22 +98,12 @@ public class Pirate {
         }
     }
 
-    public void setTimeout(Long timeout){
-        dispatcher.setTimeout(timeout);
-    }
-
-    public void setCiphertext(String ciphertext){
-        this.ciphertextPath = ciphertext;
-    }
-
     public void printOuput(){
         printer.flush();
     }
  
     public static void main(String[] args) throws IOException {
-        Pirate pirate = new Pirate();
-        pirate.setTimeout(Long.valueOf(args[2]));
-        pirate.setCiphertext(args[3]);
+        Pirate pirate = new Pirate(args[3], Long.valueOf(args[2]));
         pirate.findTreasure(args[0]);
         pirate.printOuput();
     }

@@ -1,14 +1,12 @@
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.Vector;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.stream.Collectors;
 
 /**
  * Solution to HW-6 as the hw states - however, this is slow. 
@@ -25,11 +23,12 @@ public class Dispatcher{
     private Set<String> uncrackedHashes;
     private Long timeout;
 
-    public Dispatcher(){
+    public Dispatcher(long timeout){
         this.workQueue = new LinkedBlockingQueue<>();
         this.uncrackedHashes = new CopyOnWriteArraySet<>();
         this.threads = new Vector<>();
         this.crackedHashes = new Vector<>();
+        this.timeout = timeout;
     }
 
     /** 
@@ -70,46 +69,11 @@ public class Dispatcher{
         }
     }
 
-    /** 
-     * @param timeout
-     */
-    public void setTimeout(Long timeout){
-        this.timeout = timeout;
-    }
-
-    public void listCracked(){
-        crackedHashes.stream().forEach(System.out::println);
-    }
-
-    public void listUncracked(){
-        uncrackedHashes.stream().forEach(System.out::println);
-    }
-
-    public void sortCrackedHashes(){
-        crackedHashes = crackedHashes.stream().sorted(Comparator.reverseOrder()).collect(Collectors.toList());
-    }
-
     public List<Integer> getCrackedHashes(){
         return crackedHashes;
     }
     
     public Set<String> getUncrackedHashes() {
         return uncrackedHashes;
-    }
-
-    /** 
-     * @param args[0] file path
-     * @param args[1] num cpus
-     * @param args[2] OPTIONAL timeout
-     */
-    public static void main(String[] args) {
-        //initialize dispatcher
-        Dispatcher dispatcher = new Dispatcher();        
-        //the submission portal is kinda buggy with the second argument
-        if(args.length > 2){
-            dispatcher.setTimeout(Long.valueOf(args[2]));
-        }
-        //import hashes into dispatcher
-        dispatcher.unhashFromFile(args[0]);
     }
 }
