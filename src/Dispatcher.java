@@ -27,9 +27,9 @@ public class Dispatcher{
 
     public Dispatcher(){
         this.workQueue = new LinkedBlockingQueue<>();
+        this.uncrackedHashes = new CopyOnWriteArraySet<>();
         this.threads = new Vector<>();
         this.crackedHashes = new Vector<>();
-        this.uncrackedHashes = new CopyOnWriteArraySet<>();
     }
 
     /** 
