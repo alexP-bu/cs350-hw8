@@ -14,12 +14,14 @@ public class Pirate {
     private List<Thread> threads;
     private List<Integer> crackedHints;
     private final PrintWriter printer;
+    private final Hash hasher;
     
     public Pirate(){
         this.dispatcher = new Dispatcher();
         this.threads = new Vector<>();
         this.crackedHints = new ArrayList<>();
         this.printer = new PrintWriter(System.out);
+        hasher = new Hash();
     }
     
     public void findTreasure(String path){
@@ -76,7 +78,6 @@ public class Pirate {
     }
     
     private void phaseTwo(List<Integer> crackedHints, Set<String> uncrackedHashes){
-        Hash hasher = new Hash();
         for(int i = 0; i < crackedHints.size(); i++){
             for(int k = i + 1; k < crackedHints.size(); k++){
                 int startPoint = crackedHints.get(i);
@@ -90,10 +91,6 @@ public class Pirate {
                     }
             }
         }
-    }
-
-    public void setNumCPUS(int cpus){
-        dispatcher.setNumCPUS(cpus);
     }
 
     public void setTimeout(Long timeout){
@@ -110,7 +107,6 @@ public class Pirate {
  
     public static void main(String[] args) {
         Pirate pirate = new Pirate();
-        pirate.setNumCPUS(Integer.valueOf(args[1]));
         pirate.setTimeout(Long.valueOf(args[2]));
         pirate.setCiphertext(args[3]);
         pirate.findTreasure(args[0]);

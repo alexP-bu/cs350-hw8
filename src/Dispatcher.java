@@ -2,7 +2,6 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.Vector;
@@ -25,7 +24,6 @@ public class Dispatcher{
     private List<Integer> crackedHashes;
     private Set<String> uncrackedHashes;
     private Long timeout;
-    private int totCPUs;
 
     public Dispatcher(){
         this.workQueue = new LinkedBlockingQueue<>();
@@ -79,10 +77,6 @@ public class Dispatcher{
         this.timeout = timeout;
     }
 
-    public void setNumCPUS(int cpus){
-        this.totCPUs = cpus;
-    }
-
     public void listCracked(){
         crackedHashes.stream().forEach(System.out::println);
     }
@@ -110,14 +104,11 @@ public class Dispatcher{
      */
     public static void main(String[] args) {
         //initialize dispatcher
-        Dispatcher dispatcher = new Dispatcher();
-        dispatcher.setNumCPUS(Integer.valueOf(args[1]));
-        
+        Dispatcher dispatcher = new Dispatcher();        
         //the submission portal is kinda buggy with the second argument
         if(args.length > 2){
             dispatcher.setTimeout(Long.valueOf(args[2]));
         }
-
         //import hashes into dispatcher
         dispatcher.unhashFromFile(args[0]);
     }
