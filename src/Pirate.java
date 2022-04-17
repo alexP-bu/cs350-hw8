@@ -4,23 +4,28 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.Vector;
+import java.util.concurrent.CopyOnWriteArrayList;
+
 public class Pirate {
     
     private Dispatcher dispatcher;
     private String ciphertextPath;
+    private Set<Integer> crackedHints;
     private List<Thread> threads;
-    private List<Integer> crackedHints;
     private final PrintWriter printer;
     
     public Pirate(String path, Long timeout){
         this.dispatcher = new Dispatcher(timeout);
-        this.threads = new Vector<>();
-        this.crackedHints = new Vector<>();
-        this.printer = new PrintWriter(System.out);
         ciphertextPath = path;
+        this.crackedHints = Collections.synchronizedSet(new TreeSet<>());
+        this.threads = new Vector<>();
+        this.printer = new PrintWriter(System.out);
     }
     
     public void findTreasure(String path) throws FileNotFoundException, IOException{
@@ -29,26 +34,24 @@ public class Pirate {
         //sort cracked hashes in order of lowest to highest
         dispatcher.getCrackedHashes().forEach(hint -> crackedHints.add(hint));
         //run phase 2 until all hints are cracked
+
         while(!dispatcher.getUncrackedHashes().isEmpty()){
-            crackedHints.sort((o1, o2) -> o1.compareTo(o2));
             phaseTwo(crackedHints, dispatcher.getUncrackedHashes());
             finishThreads();
         }
         //ensure threads are finished before decryption
-        finishThreads();
         //decrypt ciphertext
         decrypt(ciphertextPath, crackedHints);
     }
 
     //this method decrypts the ciphertext using the cracked hints
-    private void decrypt(String ciphertextPath, List<Integer> crackedHints) 
+    private void decrypt(String ciphertextPath, Set<Integer> crackedHints2) 
                                             throws FileNotFoundException, IOException {
         //read ciphertext as bytes
         byte[] arr = readCiphertext(ciphertextPath);
         //convert to a string
         String ciphertext = new String(arr, StandardCharsets.UTF_8);
-        crackedHints.sort((o1, o2) -> o1.compareTo(o2));
-        for(int i : crackedHints){
+        for(int i : crackedHints2){
             printer.write(ciphertext.charAt(i));
         }
     }
@@ -76,7 +79,8 @@ public class Pirate {
         });
     }
     
-    private void phaseTwo(List<Integer> crackedHints, Set<String> uncrackedHashes){
+    //this runs the phase two operation of unhashing i;i+1 to j - 1
+    private void phaseTwo(Set<Integer> crackedHints, Set<String> uncrackedHashes){
         for(int i = 0; i < crackedHints.size(); i++){
             for(int k = i + 1; k < crackedHints.size(); k++){
                 int startPoint = crackedHints.get(i);
@@ -96,6 +100,12 @@ public class Pirate {
                 thread.start();
             }
         }
+
+        Set<Integer> nextPhaseHints = Collections.synchronizedSet(new TreeSet<>());
+        
+        nextPhaseHints = crackedHints.stream()
+                                     .forEach(hash1 -> );
+            
     }
 
     public void printOuput(){
