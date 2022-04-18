@@ -38,7 +38,8 @@ public class Dispatcher{
      */
     //read lines from file and dispatch them to the queue
     public void unhashFromFile(String path){
-        
+        initGenerators(NUM_GENS);
+
         try(BufferedReader br = new BufferedReader(new FileReader(new File(path)))){
             br.lines().parallel().forEach(this::dispatch);
         } catch(Exception e){
@@ -54,7 +55,7 @@ public class Dispatcher{
     //add unit of work to work queue 
     public void dispatch(String hash){
         Thread t = new Thread(new Worker(
-            hash, timeout, uncrackedHashes, crackedHashes));
+            hash, timeout, generators, uncrackedHashes, crackedHashes));
         t.start();
         threads.add(t);
     }

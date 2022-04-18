@@ -3,12 +3,11 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.Vector;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ConcurrentSkipListSet;
+
 
 public class Pirate {
     
@@ -21,8 +20,9 @@ public class Pirate {
     public Pirate(String path, Long timeout){
         this.dispatcher = new Dispatcher(timeout);
         ciphertextPath = path;
-        this.crackedHints = Collections.synchronizedSet(new TreeSet<>());
-        this.threads = new Vector<>(1500, 250);
+        //syncronizedset seems to work faster than concurrentskipset
+        this.crackedHints = new ConcurrentSkipListSet<>();
+        this.threads = new Vector<>(2000, 250);
         this.printer = new PrintWriter(System.out);
     }
     
@@ -31,9 +31,14 @@ public class Pirate {
         dispatcher.unhashFromFile(path);
         //sort cracked hashes in order of lowest to highest
         dispatcher.getCrackedHashes().forEach(hint -> crackedHints.add(hint));
-        //run phase 2 until all hints are cracked
+        //run phase 2
+        Set<Integer> nextPhaseHints = new ConcurrentSkipListSet<>((i1,i2) -> i1.compareTo(i2));
+        nextPhaseHints = crackHints(crackedHints, dispatcher.getUncrackedHashes());
+        finishThreads();
+
+        //now run phase 2 over and over until it cracks everything
         while(!dispatcher.getUncrackedHashes().isEmpty()){
-            phaseTwo(crackedHints, dispatcher.getUncrackedHashes());
+            nextPhaseHints = crackHints(nextPhaseHints, dispatcher.getUncrackedHashes());
             finishThreads();
         }
 
@@ -43,13 +48,13 @@ public class Pirate {
     }
 
     //this method decrypts the ciphertext using the cracked hints
-    private void decrypt(String ciphertextPath, Set<Integer> crackedHints2) 
+    private void decrypt(String ciphertextPath, Set<Integer> crackedHints) 
                                             throws IOException {
         //read ciphertext as bytes
         byte[] arr = readCiphertext(ciphertextPath);
         //convert to a string
         String ciphertext = new String(arr, StandardCharsets.UTF_8);
-        for(int i : crackedHints2){
+        for(int i : crackedHints){
             printer.write(ciphertext.charAt(i));
         }
     }
@@ -78,17 +83,18 @@ public class Pirate {
     }
     
     //this runs the phase two operation of unhashing i;i+1 to j - 1
-    private void phaseTwo(Set<Integer> crackedHints2, Set<String> uncrackedHashes){
-        //List<Integer> nextPhaseHints = new CopyOnWriteArrayList();
-        crackedHints2.forEach(hint1 -> crackedHints2.stream()
-                                                .filter(hint2 -> (hint1 < hint2))
-                                                .forEach(hint2 -> {
-                                                    Thread thread = new Thread(new TreasureGnome(
-                                                        crackedHints2, hint1, hint2, uncrackedHashes));
-                                                    thread.start();
-                                                    threads.add(thread);
-                                                }));
-            
+    private Set<Integer> crackHints(Set<Integer> hintsToCrack, Set<String> uncrackedHashes){
+        Set<Integer> nextPhaseHints = new ConcurrentSkipListSet<>((i1,i2) -> i1.compareTo(i2));
+        hintsToCrack.forEach(hint1 
+            -> hintsToCrack.parallelStream()
+                            .filter(hint2 -> (hint1 < hint2))
+                            .forEach(hint2 -> {
+                                Thread thread = new Thread(new TreasureGnome(
+                                    nextPhaseHints, hintsToCrack, hint1, hint2, uncrackedHashes));
+                                thread.start();
+                                threads.add(thread);
+                            }));
+        return nextPhaseHints;  
     }
 
     public void printOuput(){
@@ -96,10 +102,10 @@ public class Pirate {
     }
  
     public static void main(String[] args) throws IOException {
-        Long start = System.currentTimeMillis();
+        //Long start = System.currentTimeMillis();
         Pirate pirate = new Pirate(args[3], Long.valueOf(args[2]));
         pirate.findTreasure(args[0]);
         pirate.printOuput();
-        System.out.println("\n" + "RUNTIME: " + (System.currentTimeMillis() - start));
+        //System.out.println("\n" + "RUNTIME: " + (System.currentTimeMillis() - start));
     }
 }

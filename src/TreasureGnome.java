@@ -1,20 +1,24 @@
-import java.util.List;
 import java.util.Set;
 
 public class TreasureGnome implements Runnable {
 
     private Hash hasher;
-    private Set<Integer> crackedHints;
+    private Set<Integer> nextPhaseHints;
+    private Set<Integer> allCrackedHints;
     private Set<String> uncrackedHashes;
     private int start;
     private int end;
 
-    public TreasureGnome(Set<Integer> crackedHints, int start, int end, Set<String> uncrackedHashes){
+    public TreasureGnome(Set<Integer> nextPhaseHints, 
+                         Set<Integer> allCrackedHints, 
+                         int start, int end, 
+                         Set<String> uncrackedHashes){
         this.hasher = new Hash();
-        this.crackedHints = crackedHints;
+        this.allCrackedHints = allCrackedHints;
         this.start = start;
         this.end = end;
         this.uncrackedHashes = uncrackedHashes;
+        this.nextPhaseHints = nextPhaseHints;
     }
 
     //THE TREASURE GNOME DEPARTS ITS DEN TO FIND A HASH FOR THE PIRATE
@@ -24,7 +28,8 @@ public class TreasureGnome implements Runnable {
             String currHash = hasher.hash(start + ";" + j + ";" + end);
             if (uncrackedHashes.contains(currHash)) {
                 uncrackedHashes.remove(currHash);
-                crackedHints.add(j); 
+                nextPhaseHints.add(j);
+                allCrackedHints.add(j); 
             }
         }
     }
