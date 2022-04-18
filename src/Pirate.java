@@ -40,15 +40,15 @@ public class Pirate {
         
         //run phase 2; the two concurrentskiplists are for the following operations
         //I wonder if there is a more memory efficient way to write this...
-        Set<Integer> nextPhaseHints = new ConcurrentSkipListSet<>((i1,i2) -> i1.compareTo(i2));
-        Set<Integer> nextNextPhaseHints = new ConcurrentSkipListSet<>((i1,i2) -> i1.compareTo(i2));
-        crackHints(nextPhaseHints, crackedHints, dispatcher.getUncrackedHashes());
-
+        Set<Integer> nextPhaseHints = new ConcurrentSkipListSet<>();
+        crackHints(nextPhaseHints, crackedHints, uncrackedHashes);
+        
         //now run phase 2 over and over until it cracks everything
-        while(!dispatcher.getUncrackedHashes().isEmpty()){
-            crackHints(nextNextPhaseHints, nextPhaseHints, dispatcher.getUncrackedHashes());
-            nextPhaseHints.addAll(nextNextPhaseHints);
+        Set<Integer> nextNextPhaseHints = new ConcurrentSkipListSet<>();
+        while(!uncrackedHashes.isEmpty()){
             nextNextPhaseHints.clear();
+            crackHints(nextNextPhaseHints, nextPhaseHints, uncrackedHashes);
+            nextPhaseHints.addAll(nextNextPhaseHints);
         }
 
         //ensure threads are finished before decryption

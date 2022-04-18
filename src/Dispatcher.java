@@ -10,10 +10,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Solution to HW-6 as the hw states - however, this is slow. 
- * This is because each worker is generating its own brute force method until it finds a hash.
- * Can we speed this up with a hashmap so we dont have to recompute values?
- * Or maybe have different workers that generate different parts of that hashmap?
+ * This dispatcher is from HW7.
+ * It cracks the first piece of the puzzle - the initial hashed integers
+ * It does this by making generators, which generate subdictionaries
+ * Workers then search the dictionaries for a hash
  */
 
 public class Dispatcher{
