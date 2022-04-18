@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 
 public class Pirate {
@@ -14,46 +15,51 @@ public class Pirate {
     private Dispatcher dispatcher;
     private String ciphertextPath;
     private Set<Integer> crackedHints;
+    private Set<String> uncrackedHashes;
     private List<Thread> threads;
     private final PrintWriter printer;
 
     public Pirate(String path, Long timeout){
         this.dispatcher = new Dispatcher(timeout);
         ciphertextPath = path;
-        //syncronizedset seems to work faster than concurrentskipset
+        //lets use a concurrentskiplistset to maintain order in our set which we import hints into
+        //(concurrent version of a treeset)
         this.crackedHints = new ConcurrentSkipListSet<>();
         this.threads = new Vector<>(2000, 250);
         this.printer = new PrintWriter(System.out);
+        this.uncrackedHashes = new CopyOnWriteArraySet<>();
     }
     
     public void findTreasure(String path) throws IOException{
         //run first pass
         dispatcher.unhashFromFile(path);
-        //sort cracked hashes in order of lowest to highest
-        dispatcher.getCrackedHashes().forEach(hint -> crackedHints.add(hint));
-        //run phase 2
+        //import cracked hints from dispatcher
+        crackedHints.addAll(dispatcher.getCrackedHashes());
+        //import uncracked hashes from dipatcher
+        uncrackedHashes.addAll(dispatcher.getUncrackedHashes());
+        
+        //run phase 2; the two concurrentskiplists are for the following operations
+        //I wonder if there is a more memory efficient way to write this...
         Set<Integer> nextPhaseHints = new ConcurrentSkipListSet<>((i1,i2) -> i1.compareTo(i2));
-        nextPhaseHints = crackHints(crackedHints, dispatcher.getUncrackedHashes());
-        finishThreads();
+        Set<Integer> nextNextPhaseHints = new ConcurrentSkipListSet<>((i1,i2) -> i1.compareTo(i2));
+        crackHints(nextPhaseHints, crackedHints, dispatcher.getUncrackedHashes());
 
         //now run phase 2 over and over until it cracks everything
         while(!dispatcher.getUncrackedHashes().isEmpty()){
-            nextPhaseHints = crackHints(nextPhaseHints, dispatcher.getUncrackedHashes());
-            finishThreads();
+            crackHints(nextNextPhaseHints, nextPhaseHints, dispatcher.getUncrackedHashes());
+            nextPhaseHints.addAll(nextNextPhaseHints);
+            nextNextPhaseHints.clear();
         }
 
         //ensure threads are finished before decryption
         //decrypt ciphertext
-        decrypt(ciphertextPath, crackedHints);
+        decrypt(crackedHints);
     }
 
     //this method decrypts the ciphertext using the cracked hints
-    private void decrypt(String ciphertextPath, Set<Integer> crackedHints) 
-                                            throws IOException {
-        //read ciphertext as bytes
-        byte[] arr = readCiphertext(ciphertextPath);
+    private void decrypt(Set<Integer> crackedHints) throws IOException {
         //convert to a string
-        String ciphertext = new String(arr, StandardCharsets.UTF_8);
+        String ciphertext = new String(readCiphertext(ciphertextPath), StandardCharsets.UTF_8);
         for(int i : crackedHints){
             printer.write(ciphertext.charAt(i));
         }
@@ -68,33 +74,19 @@ public class Pirate {
         } 
         return arr;
     }
-
-    //this method ensures all threads are finished
-    //before moving on in the main thread
-    private void finishThreads(){
-        threads.stream().forEach(thread -> {
-            try {
-                thread.join();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                e.printStackTrace();
-            }
-        });
-    }
     
     //this runs the phase two operation of unhashing i;i+1 to j - 1
-    private Set<Integer> crackHints(Set<Integer> hintsToCrack, Set<String> uncrackedHashes){
-        Set<Integer> nextPhaseHints = new ConcurrentSkipListSet<>((i1,i2) -> i1.compareTo(i2));
+    //the pipeline filters hints so that i and j are in proper order from all subsets of hints
+    private void crackHints(Set<Integer> nextPhaseHints, Set<Integer> hintsToCrack, Set<String> uncrackedHashes){
         hintsToCrack.forEach(hint1 
             -> hintsToCrack.parallelStream()
                             .filter(hint2 -> (hint1 < hint2))
                             .forEach(hint2 -> {
                                 Thread thread = new Thread(new TreasureGnome(
-                                    nextPhaseHints, hintsToCrack, hint1, hint2, uncrackedHashes));
+                                    nextPhaseHints, this.crackedHints, hint1, hint2, uncrackedHashes));
                                 thread.start();
                                 threads.add(thread);
-                            }));
-        return nextPhaseHints;  
+                            })); 
     }
 
     public void printOuput(){
@@ -102,10 +94,10 @@ public class Pirate {
     }
  
     public static void main(String[] args) throws IOException {
-        //Long start = System.currentTimeMillis();
+        Long start = System.currentTimeMillis();
         Pirate pirate = new Pirate(args[3], Long.valueOf(args[2]));
         pirate.findTreasure(args[0]);
         pirate.printOuput();
-        //System.out.println("\n" + "RUNTIME: " + (System.currentTimeMillis() - start));
+        System.out.println("\n" + "RUNTIME: " + (System.currentTimeMillis() - start));
     }
 }
