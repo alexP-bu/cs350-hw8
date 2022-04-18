@@ -4,9 +4,10 @@ import java.io.FileReader;
 import java.util.List;
 import java.util.Set;
 import java.util.Vector;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Solution to HW-6 as the hw states - however, this is slow. 
@@ -17,17 +18,18 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 public class Dispatcher{
 
-    private BlockingQueue<String> workQueue;
+    public static final int NUM_GENS = 20; //number of generators generating hashmap subsets
+    private List<Generator> generators; 
     private List<Thread> threads;
     private List<Integer> crackedHashes;
     private Set<String> uncrackedHashes;
     private Long timeout;
 
     public Dispatcher(long timeout){
-        this.workQueue = new LinkedBlockingQueue<>();
         this.uncrackedHashes = new CopyOnWriteArraySet<>();
-        this.threads = new Vector<>();
-        this.crackedHashes = new Vector<>();
+        this.threads = new Vector<>(100, 10);
+        this.generators = new Vector<>(NUM_GENS);
+        this.crackedHashes = new Vector<>(50);
         this.timeout = timeout;
     }
 
@@ -36,20 +38,14 @@ public class Dispatcher{
      */
     //read lines from file and dispatch them to the queue
     public void unhashFromFile(String path){
+        
         try(BufferedReader br = new BufferedReader(new FileReader(new File(path)))){
-            br.lines().forEach(this::dispatch);
+            br.lines().parallel().forEach(this::dispatch);
         } catch(Exception e){
           e.printStackTrace();
         }
 
-        threads.stream().forEach(thread -> {
-            try {
-                thread.join();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                e.printStackTrace();
-            }
-        });
+        completeThreads();
     }
 
     /** 
@@ -57,16 +53,43 @@ public class Dispatcher{
      */
     //add unit of work to work queue 
     public void dispatch(String hash){
-        workQueue.add(hash);
-        //if there are jobs in the queue but not available workers, keep running until there 
-        //are no jobs left in the queue (workers aren't capped)
-        while(!workQueue.isEmpty()){
-            if(true){
-                Thread t = new Thread(new Worker(workQueue.poll(), timeout, uncrackedHashes, crackedHashes));
-                t.start();
-                threads.add(t);
+        Thread t = new Thread(new Worker(
+            hash, timeout, uncrackedHashes, crackedHashes));
+        t.start();
+        threads.add(t);
+    }
+
+    private void initGenerators(int numGensInit) {
+        AtomicInteger a = new AtomicInteger(0);
+        this.generators = Stream
+                            .generate(() -> new Generator(a.getAndIncrement()))
+                            .limit(numGensInit++)
+                            .collect(Collectors.toList());
+
+        generators
+            .parallelStream()
+            .forEach(generator -> {
+                        Thread t = new Thread(generator);
+                        t.start();
+                    }
+            );
+    }
+
+    private void completeThreads() {
+        threads
+            .parallelStream()
+            .forEach(thread -> {
+                try {
+                    thread.join();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                e.printStackTrace();
             }
-        }
+        });
+
+        generators
+            .parallelStream()
+            .forEach(Generator::stop);
     }
 
     public List<Integer> getCrackedHashes(){

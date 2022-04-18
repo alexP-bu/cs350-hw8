@@ -1,11 +1,9 @@
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -19,26 +17,26 @@ public class Pirate {
     private Set<Integer> crackedHints;
     private List<Thread> threads;
     private final PrintWriter printer;
-    
+
     public Pirate(String path, Long timeout){
         this.dispatcher = new Dispatcher(timeout);
         ciphertextPath = path;
         this.crackedHints = Collections.synchronizedSet(new TreeSet<>());
-        this.threads = new Vector<>();
+        this.threads = new Vector<>(1500, 250);
         this.printer = new PrintWriter(System.out);
     }
     
-    public void findTreasure(String path) throws FileNotFoundException, IOException{
+    public void findTreasure(String path) throws IOException{
         //run first pass
         dispatcher.unhashFromFile(path);
         //sort cracked hashes in order of lowest to highest
         dispatcher.getCrackedHashes().forEach(hint -> crackedHints.add(hint));
         //run phase 2 until all hints are cracked
-
         while(!dispatcher.getUncrackedHashes().isEmpty()){
             phaseTwo(crackedHints, dispatcher.getUncrackedHashes());
             finishThreads();
         }
+
         //ensure threads are finished before decryption
         //decrypt ciphertext
         decrypt(ciphertextPath, crackedHints);
@@ -46,7 +44,7 @@ public class Pirate {
 
     //this method decrypts the ciphertext using the cracked hints
     private void decrypt(String ciphertextPath, Set<Integer> crackedHints2) 
-                                            throws FileNotFoundException, IOException {
+                                            throws IOException {
         //read ciphertext as bytes
         byte[] arr = readCiphertext(ciphertextPath);
         //convert to a string
@@ -57,11 +55,11 @@ public class Pirate {
     }
 
     //this method reads ciphertext from file given path
-    private byte[] readCiphertext(String ciphertextPath) throws FileNotFoundException, IOException {
+    private byte[] readCiphertext(String ciphertextPath) throws IOException {
         File cipherTextFile = new File(ciphertextPath);
         byte[] arr = new byte[(int)cipherTextFile.length()];
         try (FileInputStream fs = new FileInputStream(cipherTextFile)) {
-            fs.read(arr);
+            arr = fs.readAllBytes();
         } 
         return arr;
     }
@@ -80,31 +78,16 @@ public class Pirate {
     }
     
     //this runs the phase two operation of unhashing i;i+1 to j - 1
-    private void phaseTwo(Set<Integer> crackedHints, Set<String> uncrackedHashes){
-        for(int i = 0; i < crackedHints.size(); i++){
-            for(int k = i + 1; k < crackedHints.size(); k++){
-                int startPoint = crackedHints.get(i);
-                int endPoint = crackedHints.get(k);
-                Thread thread = new Thread(() -> {
-                    Hash hasher = new Hash();
-                    for(int j = startPoint + 1; j < endPoint; j++){
-                        Integer middle = j;
-                        String currHash = hasher.hash(startPoint + ";" + middle + ";" + endPoint);
-                        if(uncrackedHashes.contains(currHash)){
-                            crackedHints.add(middle);
-                            uncrackedHashes.remove(currHash);
-                        }
-                    }
-                });
-                threads.add(thread);
-                thread.start();
-            }
-        }
-
-        Set<Integer> nextPhaseHints = Collections.synchronizedSet(new TreeSet<>());
-        
-        nextPhaseHints = crackedHints.stream()
-                                     .forEach(hash1 -> );
+    private void phaseTwo(Set<Integer> crackedHints2, Set<String> uncrackedHashes){
+        //List<Integer> nextPhaseHints = new CopyOnWriteArrayList();
+        crackedHints2.forEach(hint1 -> crackedHints2.stream()
+                                                .filter(hint2 -> (hint1 < hint2))
+                                                .forEach(hint2 -> {
+                                                    Thread thread = new Thread(new TreasureGnome(
+                                                        crackedHints2, hint1, hint2, uncrackedHashes));
+                                                    thread.start();
+                                                    threads.add(thread);
+                                                }));
             
     }
 
@@ -113,8 +96,10 @@ public class Pirate {
     }
  
     public static void main(String[] args) throws IOException {
+        Long start = System.currentTimeMillis();
         Pirate pirate = new Pirate(args[3], Long.valueOf(args[2]));
         pirate.findTreasure(args[0]);
         pirate.printOuput();
+        System.out.println("\n" + "RUNTIME: " + (System.currentTimeMillis() - start));
     }
 }

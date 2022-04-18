@@ -45,7 +45,6 @@ public class Worker implements Runnable{
         }else{
             crackedHashes.add(result);
         }
-        
         this.finish();
     }
 }
