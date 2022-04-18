@@ -3,9 +3,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Set;
-import java.util.Vector;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CopyOnWriteArraySet;
 
@@ -16,7 +14,6 @@ public class Pirate {
     private String ciphertextPath;
     private Set<Integer> crackedHints;
     private Set<String> uncrackedHashes;
-    private List<Thread> threads;
     private final PrintWriter printer;
 
     public Pirate(String path, Long timeout){
@@ -25,7 +22,6 @@ public class Pirate {
         //lets use a concurrentskiplistset to maintain order in our set which we import hints into
         //(concurrent version of a treeset)
         this.crackedHints = new ConcurrentSkipListSet<>();
-        this.threads = new Vector<>(2000, 250);
         this.printer = new PrintWriter(System.out);
         this.uncrackedHashes = new CopyOnWriteArraySet<>();
     }
@@ -46,9 +42,9 @@ public class Pirate {
         //now run phase 2 over and over until it cracks everything
         Set<Integer> nextNextPhaseHints = new ConcurrentSkipListSet<>();
         while(!uncrackedHashes.isEmpty()){
-            nextNextPhaseHints.clear();
             crackHints(nextNextPhaseHints, nextPhaseHints, uncrackedHashes);
             nextPhaseHints.addAll(nextNextPhaseHints);
+            nextNextPhaseHints.clear();
         }
 
         //ensure threads are finished before decryption
@@ -77,7 +73,9 @@ public class Pirate {
     
     //this runs the phase two operation of unhashing i;i+1 to j - 1
     //the pipeline filters hints so that i and j are in proper order from all subsets of hints
-    private void crackHints(Set<Integer> nextPhaseHints, Set<Integer> hintsToCrack, Set<String> uncrackedHashes){
+    private void crackHints(Set<Integer> nextPhaseHints, 
+                            Set<Integer> hintsToCrack, 
+                            Set<String> uncrackedHashes){
         hintsToCrack.forEach(hint1 
             -> hintsToCrack.parallelStream()
                             .filter(hint2 -> (hint1 < hint2))
@@ -85,7 +83,6 @@ public class Pirate {
                                 Thread thread = new Thread(new TreasureGnome(
                                     nextPhaseHints, this.crackedHints, hint1, hint2, uncrackedHashes));
                                 thread.start();
-                                threads.add(thread);
                             })); 
     }
 

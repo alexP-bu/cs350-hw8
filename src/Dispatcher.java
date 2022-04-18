@@ -18,7 +18,7 @@ import java.util.stream.Stream;
 
 public class Dispatcher{
 
-    public static final int NUM_GENS = 20; //number of generators generating hashmap subsets
+    public static final int NUM_GENS = 10; //number of generators generating hashmap subsets
     private List<Generator> generators; 
     private List<Thread> threads;
     private List<Integer> crackedHashes;

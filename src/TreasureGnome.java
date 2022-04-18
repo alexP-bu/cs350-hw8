@@ -10,11 +10,11 @@ public class TreasureGnome implements Runnable {
     private int end;
 
     public TreasureGnome(Set<Integer> nextPhaseHints, 
-                         Set<Integer> allCrackedHints, 
+                         Set<Integer> hintsToCrack, 
                          int start, int end, 
                          Set<String> uncrackedHashes){
         this.hasher = new Hash();
-        this.allCrackedHints = allCrackedHints;
+        this.allCrackedHints = hintsToCrack;
         this.start = start;
         this.end = end;
         this.uncrackedHashes = uncrackedHashes;
