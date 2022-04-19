@@ -26,7 +26,7 @@ public class Pirate {
         this.uncrackedHashes = new CopyOnWriteArraySet<>();
     }
     
-    public void findTreasure(String path) throws IOException{
+    public void findTreasure(String path) throws IOException, InterruptedException{
         //run first pass
         dispatcher.unhashFromFile(path);
         //import cracked hints from dispatcher
@@ -43,6 +43,7 @@ public class Pirate {
         Set<Integer> nextNextPhaseHints = new ConcurrentSkipListSet<>();
         while(!uncrackedHashes.isEmpty()){
             crackHints(nextNextPhaseHints, nextPhaseHints, uncrackedHashes);
+            nextPhaseHints.clear();
             nextPhaseHints.addAll(nextNextPhaseHints);
             nextNextPhaseHints.clear();
         }
@@ -72,13 +73,13 @@ public class Pirate {
     }
     
     //this runs the phase two operation of unhashing i;i+1 to j - 1
-    //the pipeline filters hints so that i and j are in proper order from all subsets of hints
+    //we no longer need to filter stuff because everything is in order due to
+    //treemap usage
     private void crackHints(Set<Integer> nextPhaseHints, 
                             Set<Integer> hintsToCrack, 
                             Set<String> uncrackedHashes){
-        hintsToCrack.forEach(hint1 
-            -> hintsToCrack.parallelStream()
-                            .filter(hint2 -> (hint1 < hint2))
+        hintsToCrack.stream()
+                    .forEach(hint1 -> hintsToCrack.stream()
                             .forEach(hint2 -> {
                                 Thread thread = new Thread(new TreasureGnome(
                                     nextPhaseHints, this.crackedHints, hint1, hint2, uncrackedHashes));
@@ -90,7 +91,7 @@ public class Pirate {
         printer.flush();
     }
  
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, InterruptedException {
         Long start = System.currentTimeMillis();
         Pirate pirate = new Pirate(args[3], Long.valueOf(args[2]));
         pirate.findTreasure(args[0]);

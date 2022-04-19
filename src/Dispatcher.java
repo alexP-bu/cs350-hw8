@@ -4,6 +4,7 @@ import java.io.FileReader;
 import java.util.List;
 import java.util.Set;
 import java.util.Vector;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -27,8 +28,8 @@ public class Dispatcher{
 
     public Dispatcher(long timeout){
         this.uncrackedHashes = new CopyOnWriteArraySet<>();
+        this.generators = new CopyOnWriteArrayList<>();
         this.threads = new Vector<>(100, 10);
-        this.generators = new Vector<>(NUM_GENS);
         this.crackedHashes = new Vector<>(50);
         this.timeout = timeout;
     }
@@ -63,22 +64,20 @@ public class Dispatcher{
     private void initGenerators(int numGensInit) {
         AtomicInteger a = new AtomicInteger(0);
         this.generators = Stream
-                            .generate(() -> new Generator(a.getAndIncrement()))
+                            .generate(() -> {
+                                Generator g = new Generator(a.getAndIncrement());
+                                Thread thread = new Thread(g);
+                                thread.start();
+                                return g;
+                            })
                             .limit(numGensInit++)
                             .collect(Collectors.toList());
-
-        generators
-            .parallelStream()
-            .forEach(generator -> {
-                        Thread t = new Thread(generator);
-                        t.start();
-                    }
-            );
     }
 
     private void completeThreads() {
         threads
-            .parallelStream()
+            .stream()
+            .parallel()
             .forEach(thread -> {
                 try {
                     thread.join();
